@@ -1,0 +1,62 @@
+<!DOCTYPE html><html><!-- Built with spec-md --><head><meta charset="utf-8"><title>SecureLogin</title><link href="spec.css" rel="stylesheet"><link href="highlight.css" rel="stylesheet"></head><body><header><h1>SecureLogin</h1><section id="intro"><p><strong>Introduction</strong></p><p>This is a Draft RFC Specification for SecureLogin, an authentication protocol created by Sakurity. The development of this protocol started in 2014. </p><p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &ldquo;AS IS&rdquo; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p></section><div class="spec-toc"><div class="title">Contents</div><ol><li><a href="#sec-Overview"><span class="spec-secid">1</span>Overview</a><input hidden class="toggle" type="checkbox" checked id="_toggle_1" /><label for="_toggle_1"></label><ol><li><a href="#sec-Websites"><span class="spec-secid">1.1</span>Websites</a></li></ol></li></ol></div></header><section id="sec-Overview" secid="1"><h2><span class="spec-secid" title="link to this section"><a href="#sec-Overview">1</a></span>Overview</h2><p>SecureLogin is a protocol designed to authenticate users to remote servers and local applications using a SecureLogin client application.</p><p>Unlike password managers, SecureLogin is not something you can use with any application, but instead a protocol to interact with servers that have implemented this specification.</p><p>SecureLogin has a number of design principles:</p><ul><li><strong>Decentralized</strong>: at no point in this protocol there&rsquo;s a central authority. No entity can log into account but the user. No servers store any sensitive information or require the user to backup key material. Creating valid signed <code>sltoken</code> with SecureLogin app is one and the only way to get into account. There must be no &ldquo;recovery&rdquo; options or trusted 3rd party services.</li><li><strong>Scalability</strong>: most existings platform must be supported without any additional hardware. </li><li><strong>Convenient</strong>: login experience must be smooth and take only 2 clicks once the app is up and running.</li></ul><p><img src="flow.png" alt="flow.png"/></p><p>Let&rsquo;s define a few terms we will be using throughout this document:</p><ul><li>provider: who you&rsquo;re authentication for, backend service and general name of the app. </li><li>client: who you&rsquo;re authenticating with. Normally equal to provider, which means the client side of https://my.app is authenticating to https://my.app server side. The client may also set a different <code>provider</code> and <strong>authorize</strong> specific <code>scope</code>.</li><li>scope: what are you allowed to do. By default scope is empty string for regular sign&#8208;in/sign&#8208;up flow most websites use which looks like this:</li></ul><pre><code>provider=https://my.app
+client=https://my.app
+scope=(empty string)
+</code></pre><ul><li>expire_at: to prevent replay attacks all sltokens have an expire_at set as current_time + 60 seconds but the clients may ignore it or allow much longer expiration time.</li><li>flow: what kind of SecureLogin client the user has. Can be a <code>web</code> for <code>https://securelogin.pw</code>, or <code>ext</code> chrome extension or <code>app</code> for the native app. </li><li>sltoken: short value which is nested csv (comma&#8208;separated values). We don&rsquo;t use JSON for a few reasons: 1) there are no changes expected to the format so there&rsquo;s no need for overhead in explicit hash keys 2) JSON is unordered and we do need order for signing provider, client, scope and expire_at altogether.</li></ul><p>sltoken is easy to pack and unpack. It has following format:</p><p>csv( csv(provider, client, scope, protocol), csv(public_key, ) )</p><p> # Integrations</p><section id="sec-Websites" secid="1.1"><h3><span class="spec-secid" title="link to this section"><a href="#sec-Websites">1.1</a></span>Websites</h3><p>To support SecureLogin a website must include JS helper from <code>https://cobased.com/sdk.js</code></p><p>To get signed <code>sltoken</code> the app must invoke <code>SecureLogin(callback, flow, scope)</code></p><p>New users must type an email and <strong>master password</strong> to create a <strong>Profile</strong>. SecureLogin client runs key derivation function (scrypt) with <code>logN=18 p=6</code> which takes up to 20 seconds. </p><p>The keypair derivation is deterministic: running following code will generate the same <strong>profile</strong> on any machine:</p><pre><code>derived_root = <span class="hljs-built_in">require</span>(<span class="hljs-string">"scrypt"</span>).hashSync(<span class="hljs-string">"masterpassword"</span>,{<span class="hljs-string">"N"</span>:<span class="hljs-built_in">Math</span>.pow(<span class="hljs-number">2</span>,<span class="hljs-number">18</span>),<span class="hljs-string">"r"</span>:<span class="hljs-number">8</span>,<span class="hljs-string">"p"</span>:<span class="hljs-number">6</span>},<span class="hljs-number">32</span>,<span class="hljs-string">"user@email.com"</span>).toString(<span class="hljs-string">"base64"</span>)
+</code></pre><p><strong>Warning about Email verification</strong>: the protocol does not confirm user email and does not intend to do so. In our vision an email provided is merely an address for mails, not a primary key / identifier like in the classic authentication scheme. I.e. two accounts can have equal email.</p><p>We don&rsquo;t recommend to confirm / verify it at all and let user specify whatever they want <strong>unless you are obligated by law to require explicit email confirmation</strong></p></section></section><footer>Written in <a href="http://leebyron.com/spec-md/" target="_blank">Spec Markdown</a>.</footer><input hidden class="spec-sidebar-toggle" type="checkbox" id="spec-sidebar-toggle" aria-hidden /><label for="spec-sidebar-toggle" aria-hidden>&#x2630;</label><div class="spec-sidebar" aria-hidden><div class="spec-toc"><div class="title"><a href="#">SecureLogin</a></div><ol><li id="_sidebar_1"><a href="#sec-Overview"><span class="spec-secid">1</span>Overview</a><input hidden class="toggle" type="checkbox" id="_sidebar_toggle_1" /><label for="_sidebar_toggle_1"></label><ol><li id="_sidebar_1.1"><a href="#sec-Websites"><span class="spec-secid">1.1</span>Websites</a></li></ol></li></ol></div><script>
+(function () {
+var currentSection;
+var numberedSections = [];
+
+var sections = document.getElementsByTagName('section');
+for (var i = 0; i < sections.length; i++) {
+  if (sections[i].getAttribute('secid')) {
+    numberedSections.push(sections[i]);
+  }
+}
+
+var scrollPos = window.scrollY;
+var pending = false;
+window.addEventListener('scroll', function (e) {
+  scrollPos = window.scrollY;
+  if (!pending) {
+    pending = true;
+    window.requestAnimationFrame(function () {
+      updateSectionFocus(scrollPos);
+      pending = false;
+    });
+  }
+});
+
+function updateSectionFocus(pos) {
+  var readLine = pos + document.documentElement.clientHeight / 4;
+
+  var focusedSection;
+  for (var n = numberedSections.length - 1; n >= 0; n--) {
+    if (numberedSections[n].offsetTop < readLine) {
+      focusedSection = numberedSections[n];
+      break;
+    }
+  }
+
+  var secid = focusedSection && focusedSection.getAttribute('secid');
+  if (secid !== currentSection) {
+    currentSection && fold(currentSection, false);
+    secid && fold(secid, true);
+    currentSection = secid;
+  }
+}
+
+function fold(secid, check) {
+  document.getElementById('_sidebar_' + secid).className = check ? 'viewing' : '';
+  var sections = secid.split('.');
+  while (sections.length) {
+    var toggle = document.getElementById('_sidebar_toggle_' + sections.join('.'));
+    if (toggle) {
+      toggle.checked = check;
+    }
+    sections.pop();
+  }
+}
+
+updateSectionFocus(window.scrollY);
+})();</script></div></body></html>
