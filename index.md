@@ -128,17 +128,17 @@ First goes the string to sign and interprets as: on what service (provider) the 
 
 Here are 3 major use cases sltoken covers:
 
-1. Sign in / Sign up requests. 
+1) Sign in / Sign up requests. 
 
 If given publicKey doesn't exist in the database, the service uses advised email, pubkey and sharedSecret provided to create a new account. Then existing or newly created record is used to verify sltoken.
 
 Empty scope means a login request, i.e. it can be exchanged for a bearer session cookie that will be later used by the browser to do subsequent requests without need to authorize each of them __except critical actions__
 
-2. Critical actions authorization and DoubleSign.
+2) Critical actions authorization and DoubleSign.
 
 Some important actions should be authorized explicitly so the malware (XSS, MitM, malicious browser extensions) won't be able to do it on behalf of the user: scope="action=money transfer&amount=100" must receive it's own sltoken. Email and sharedSecret are omitted.
 
-3. Connect (OAuth replacement)
+3) Connect (OAuth replacement)
 
 SecureLogin-enabled users have out-of-the-box way to approve arbitrary scopes for 3rd party clients. Email and sharedSecret are omitted.
 
@@ -161,17 +161,21 @@ After a long while when SL has critical user mass providers can switch from OAut
 
 SL uses solid cryptography from libraries with proven track record:
 
-1. Deterministic derivation of root hash from user's email and password. Currently only Weak-2017 scheme is offered: [scrypt](https://en.wikipedia.org/wiki/Scrypt) with logN of 18 and parallelization 6. It takes up to 20 seconds on most devices. 
+* Deterministic derivation of root hash from user's email and password. Currently only Weak-2017 scheme is offered: [scrypt](https://en.wikipedia.org/wiki/Scrypt) with logN of 18 and parallelization 6. It takes up to 20 seconds on most devices. 
 
 ```js
-derived_root = require("scrypt").hashSync("masterpassword",{"N":Math.pow(2,18),"r":8,"p":6},32,"user@email.com").toString("base64")
+root = require("scrypt").hashSync("masterpassword",{
+"N":Math.pow(2,18),"r":8,"p":6
+},32,"user@email.com").toString("base64")
 ```
 
-2. For signing `provider,client,scope,expire_at` payload we use Ed25519 from [NaCl](https://nacl.cr.yp.to/sign.html)
+* For signing `provider,client,scope,expire_at` payload we use Ed25519 from [NaCl](https://nacl.cr.yp.to/sign.html)
 
-3. For all HMAC operations we use HMAC-SHA-512-256 (the first 256 bits of HMAC-SHA-512) from NaCl. HMAC is used to get shared_base from root hash: `hmac(root, 'shared')` which is used to derive everything else: `hmac(shared_base, 'secret:https://my.app')` for sharedSecret. sharedSecret exists for security-in-depth, and by default `hmac_signature` is not verified by websites.
+* For all HMAC operations we use HMAC-SHA-512-256 (the first 256 bits of HMAC-SHA-512) from NaCl. HMAC is used to get shared_base from root hash: `hmac(root, 'shared')` which is used to derive everything else: `hmac(shared_base, 'secret:https://my.app')` for sharedSecret. sharedSecret exists for security-in-depth, and by default `hmac_signature` is not verified by websites.
 
-# How to integrate
+# How to integrate SecureLogin
+
+If your app needs some seed or entropy, you can ask SecureLogin to provide it. This way all secrets in all apps will be backed up at all times by default because they're derived from SL root hash. SL root intends to be single source of entropy for all local apps and websites, to represent user's digital identity.
 
 ## For Websites
 
