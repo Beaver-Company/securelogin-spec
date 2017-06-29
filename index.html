@@ -1,8 +1,171 @@
-<!DOCTYPE html><html><!-- Built with spec-md --><head><meta charset="utf-8"><title>SecureLogin</title><link href="spec.css" rel="stylesheet"><link href="highlight.css" rel="stylesheet"></head><body><header><h1>SecureLogin</h1><section id="intro"><p><strong>Introduction</strong></p><p>This is a Draft RFC Specification for SecureLogin, an authentication protocol created by Sakurity. The development of this protocol started in 2014. </p><p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &ldquo;AS IS&rdquo; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p></section><div class="spec-toc"><div class="title">Contents</div><ol><li><a href="#sec-Overview"><span class="spec-secid">1</span>Overview</a><input hidden class="toggle" type="checkbox" checked id="_toggle_1" /><label for="_toggle_1"></label><ol><li><a href="#sec-Websites"><span class="spec-secid">1.1</span>Websites</a></li></ol></li></ol></div></header><section id="sec-Overview" secid="1"><h2><span class="spec-secid" title="link to this section"><a href="#sec-Overview">1</a></span>Overview</h2><p>SecureLogin is a protocol designed to authenticate users to remote servers and local applications using a SecureLogin client application.</p><p>Unlike password managers, SecureLogin is not something you can use with any application, but instead a protocol to interact with servers that have implemented this specification.</p><p>SecureLogin has a number of design principles:</p><ul><li><strong>Decentralized</strong>: at no point in this protocol there&rsquo;s a central authority. No entity can log into account but the user. No servers store any sensitive information or require the user to backup key material. Creating valid signed <code>sltoken</code> with SecureLogin app is one and the only way to get into account. There must be no &ldquo;recovery&rdquo; options or trusted 3rd party services.</li><li><strong>Scalability</strong>: most existings platform must be supported without any additional hardware. </li><li><strong>Convenient</strong>: login experience must be smooth and take only 2 clicks once the app is up and running.</li></ul><p><img src="flow.png" alt="flow.png"/></p><p>Let&rsquo;s define a few terms we will be using throughout this document:</p><ul><li>provider: who you&rsquo;re authentication for, backend service and general name of the app. </li><li>client: who you&rsquo;re authenticating with. Normally equal to provider, which means the client side of https://my.app is authenticating to https://my.app server side. The client may also set a different <code>provider</code> and <strong>authorize</strong> specific <code>scope</code>.</li><li>scope: what are you allowed to do. By default scope is empty string for regular sign&#8208;in/sign&#8208;up flow most websites use which looks like this:</li></ul><pre><code>provider=https://my.app
+<!DOCTYPE html><html><!-- Built with spec-md --><head><meta charset="utf-8"><title>SecureLogin</title><link href="spec.css" rel="stylesheet"><link href="highlight.css" rel="stylesheet"></head><body><header><h1>SecureLogin</h1><section id="intro"><p><strong>Introduction</strong></p><p>This is a Draft RFC Specification for SecureLogin, an authentication protocol created by Sakurity. The development of this protocol started in 2014. </p><p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &ldquo;AS IS&rdquo; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p></section><div class="spec-toc"><div class="title">Contents</div><ol><li><a href="#sec-Overview"><span class="spec-secid">1</span>Overview</a></li><li><a href="#sec-Terminology"><span class="spec-secid">2</span>Terminology</a></li><li><a href="#sec-Client-implementation"><span class="spec-secid">3</span>Client implementation</a><input hidden class="toggle" type="checkbox" checked id="_toggle_3" /><label for="_toggle_3"></label><ol><li><a href="#sec-About-sltoken"><span class="spec-secid">3.1</span>About sltoken</a></li></ol></li><li><a href="#sec-Cryptography"><span class="spec-secid">4</span>Cryptography</a></li><li><a href="#sec-How-to-integrate"><span class="spec-secid">5</span>How to integrate</a><input hidden class="toggle" type="checkbox" checked id="_toggle_5" /><label for="_toggle_5"></label><ol><li><a href="#sec-For-Websites"><span class="spec-secid">5.1</span>For Websites</a></li></ol></li></ol></div></header><section id="sec-Overview" secid="1"><h2><span class="spec-secid" title="link to this section"><a href="#sec-Overview">1</a></span>Overview</h2><p>SecureLogin is a protocol designed to authenticate users to remote servers and local applications using a SecureLogin client application.</p><p>Unlike password managers, SecureLogin is not something you can use with any application right now, but instead a protocol to interact with servers that have implemented this specification.</p><p>SecureLogin has a number of design principles:</p><ul><li><strong>Decentralized</strong>: at no point in this protocol there&rsquo;s a central authority. No entity can log into account but the user. No servers store any sensitive information or require the user to backup key material. Creating valid signed <code>sltoken</code> with SecureLogin app is one and the only way to get into account. There must be no &ldquo;recovery&rdquo; options or trusted 3rd party services.</li><li><strong>Scalability</strong>: most existings user devices such as smartphones, laptops and desktop computers must be supported without any additional hardware. There&rsquo;s also no requirement to OS, browser or hardware specs.</li><li><strong>Convenient</strong>: login experience must be smooth and take only 2 clicks once the app is up and running.</li></ul><p><img src="flow.png" alt="flow.png"/></p></section><section id="sec-Terminology" secid="2"><h2><span class="spec-secid" title="link to this section"><a href="#sec-Terminology">2</a></span>Terminology</h2><p>Let&rsquo;s define a few terms we will be using throughout this document:</p><ul><li>provider: who you&rsquo;re authenticating for, origin of the app. </li><li>client: who you&rsquo;re authenticating with. Normally equal to provider, which means the client side of https://my.app is authenticating to https://my.app server side. The client may also set a different <code>provider</code> eg <code>https://SocialNetwork.app</code> and <strong>authorize</strong> specific <code>scope</code>, eg <code>access=Friends list</code>. When provider is different from client, we call it a Connect request &ndash; our own stateless OAuth replacement.</li><li>scope: what are you allowed to do. By default scope is empty string for regular sign&#8208;in/sign&#8208;up flow most websites use which looks like this:</li></ul><pre><code>provider=https://my.app
 client=https://my.app
 scope=(empty string)
-</code></pre><ul><li>expire_at: to prevent replay attacks all sltokens have an expire_at set as current_time + 60 seconds but the clients may ignore it or allow much longer expiration time.</li><li>flow: what kind of SecureLogin client the user has. Can be a <code>web</code> for <code>https://securelogin.pw</code>, or <code>ext</code> chrome extension or <code>app</code> for the native app. </li><li>sltoken: short value which is nested csv (comma&#8208;separated values). We don&rsquo;t use JSON for a few reasons: 1) there are no changes expected to the format so there&rsquo;s no need for overhead in explicit hash keys 2) JSON is unordered and we do need order for signing provider, client, scope and expire_at altogether.</li></ul><p>sltoken is easy to pack and unpack. It has following format:</p><p>csv( csv(provider, client, scope, protocol), csv(public_key, ) )</p><p> # Integrations</p><section id="sec-Websites" secid="1.1"><h3><span class="spec-secid" title="link to this section"><a href="#sec-Websites">1.1</a></span>Websites</h3><p>To support SecureLogin a website must include JS helper from <code>https://cobased.com/sdk.js</code></p><p>To get signed <code>sltoken</code> the app must invoke <code>SecureLogin(callback, flow, scope)</code></p><p>New users must type an email and <strong>master password</strong> to create a <strong>Profile</strong>. SecureLogin client runs key derivation function (scrypt) with <code>logN=18 p=6</code> which takes up to 20 seconds. </p><p>The keypair derivation is deterministic: running following code will generate the same <strong>profile</strong> on any machine:</p><pre><code>derived_root = <span class="hljs-built_in">require</span>(<span class="hljs-string">"scrypt"</span>).hashSync(<span class="hljs-string">"masterpassword"</span>,{<span class="hljs-string">"N"</span>:<span class="hljs-built_in">Math</span>.pow(<span class="hljs-number">2</span>,<span class="hljs-number">18</span>),<span class="hljs-string">"r"</span>:<span class="hljs-number">8</span>,<span class="hljs-string">"p"</span>:<span class="hljs-number">6</span>},<span class="hljs-number">32</span>,<span class="hljs-string">"user@email.com"</span>).toString(<span class="hljs-string">"base64"</span>)
-</code></pre><p><strong>Warning about Email verification</strong>: the protocol does not confirm user email and does not intend to do so. In our vision an email provided is merely an address for mails, not a primary key / identifier like in the classic authentication scheme. I.e. two accounts can have equal email.</p><p>We don&rsquo;t recommend to confirm / verify it at all and let user specify whatever they want <strong>unless you are obligated by law to require explicit email confirmation</strong></p></section></section><footer>Written in <a href="http://leebyron.com/spec-md/" target="_blank">Spec Markdown</a>.</footer><input hidden class="spec-sidebar-toggle" type="checkbox" id="spec-sidebar-toggle" aria-hidden /><label for="spec-sidebar-toggle" aria-hidden>&#x2630;</label><div class="spec-sidebar" aria-hidden><div class="spec-toc"><div class="title"><a href="#">SecureLogin</a></div><ol><li id="_sidebar_1"><a href="#sec-Overview"><span class="spec-secid">1</span>Overview</a><input hidden class="toggle" type="checkbox" id="_sidebar_toggle_1" /><label for="_sidebar_toggle_1"></label><ol><li id="_sidebar_1.1"><a href="#sec-Websites"><span class="spec-secid">1.1</span>Websites</a></li></ol></li></ol></div><script>
+</code></pre><ul><li>expire_at: to prevent replay attacks all sltokens have an expire_at set as current_time + 60 seconds but the clients may ignore it or allow much longer expiration time.</li><li>flow: what kind of SecureLogin client the user has. Can be a <code>web</code> for <code>https://securelogin.pw</code>, or <code>ext</code> Chrome Extension or <code>app</code> for the native app. </li><li>sltoken: short value which is nested csv (comma&#8208;separated values). We don&rsquo;t use JSON for a few reasons: 1) there are no changes expected to the format so there&rsquo;s no need for overhead in explicit hash keys 2) JSON is unordered and we do need order for signing provider, client, scope and expire_at altogether.</li><li>profile: please note word &ldquo;account&rdquo; shouldn&rsquo;t be used because account is something stored in a database record but profiles are ephemeral and can be generated from email + pw any time. SecureLogin Profiles are used to create accounts on websites. Profiles have this structure:</li></ul><pre><code>{
+  checksum: &#x27;zl&#x27;, # the client stores first two chars of `nacl.hash(pw)` for doublecheck
+  date: &quot;2017-06-28T08:52:14.984Z&quot;, # when profile was derived
+  email: &quot;my@email.com&quot;, # Email used as salt and also sent to websites as advisory contact address
+  root: &quot;5rMbnCAdi3xBbUUZAmTKmatmyL7rCIb+slK4ZGfxtV1=&quot; # everything is derived from the root which is result of scrypt(pw, email),
+  visited: [&#x27;https://cobased.com&#x27;] # an array of visited origins. Used in Change Password functionality
+}
+</code></pre><ul><li>doublecheck: is used to make sure the user did not forget master password. On 2, 4, 8, 16th account created with SecureLogin the client must require the user to type master password again. If they fail, the client offers to use Change Password</li><li>doublesign: a feature planned for 2.0 when a user can have two different master passwords for mobile and desktop and authorize critical actions on both devices using either a centralized encrypted broker, QR codes or Bluetooth.</li><li>connect: OAuth replacement, when SecureLogin is used to authorize scope for 3rd party clients.</li></ul></section><section id="sec-Client-implementation" secid="3"><h2><span class="spec-secid" title="link to this section"><a href="#sec-Client-implementation">3</a></span>Client implementation</h2><p>SecureLogin clients can come in many flavours: there are web based such as <code>https://securelogin.pw</code> official Web client and <a href="https://chrome.google.com/webstore/developer/edit/abpigncghjblhknbbannlhmgjpjpbajj">Chrome Extension</a> and there are native apps written in Rust or JS + Electron.</p><p>There are a lot of corner cases so please look <a href="https://github.com/sakurity/securelogin">into reference implementation in JS</a> for details. </p><section id="sec-About-sltoken" secid="3.1"><h3><span class="spec-secid" title="link to this section"><a href="#sec-About-sltoken">3.1</a></span>About sltoken</h3><p>sltoken is the core of SecureLogin Protocol. It&rsquo;s easy to pack and unpack and has following format:</p><p>csv( csv(provider, client, scope, expire_at), csv(publicKey, sharedSecret), csv(signature, hmac_signature), email )</p><p>csv helper must only escape % and , to ensure integrity of data:</p><pre><code>csv = function (str) {
+  if (str instanceof Array) {
+    return str.map(function (el) {
+      return el.toString().replace(/[%,]/g, function (f) {
+        return f === &#x27;%&#x27; ? &#x27;%25&#x27; : &#x27;%2C&#x27;
+      })
+    }).join(&#x27;,&#x27;)
+  } else {
+    return str.split(&#x27;,&#x27;).map(function (el) {
+      return el.replace(/(%25|%2C)/g, function (f) {
+        return f === &#x27;%25&#x27; ? &#x27;%&#x27; : &#x27;,&#x27;
+      })
+    })
+  }
+}
+</code></pre><p>Here is how sltoken is generated in our reference implementation in JavaScript:</p><pre><code>function approve (profile, provider, client, scope) {
+  var sharedSecret = hmac(profile.shared_base, &#x27;secret:&#x27; + provider)
+  var toSign = csv([provider, client, scope, secondsFromNow(60)])
+  // Email and sharedSecret are shared only on login requests
+  var isLogin = (scope === &#x27;&#x27; &amp;&amp; provider === client)
+  return csv([
+    toSign,
+    csv([sign(toSign, Benc(profile.shared_key.secretKey)), hmac(sharedSecret, toSign)]),
+    csv([Benc(profile.shared_key.publicKey), isLogin ? sharedSecret : &#x27;&#x27;]),
+    isLogin ? profile.email : &#x27;&#x27; 
+  ])
+}
+</code></pre><p>First goes the string to sign and interprets as: on what service (provider) the user is allowing specific app (client) do these actions (scope) until it expires (expire_at).</p><p>Here are 3 major use cases sltoken covers:</p><ol><li>Sign in / Sign up requests. </li></ol><p>If given publicKey doesn&rsquo;t exist in the database, the service uses advised email, pubkey and sharedSecret provided to create a new account. Then existing or newly created record is used to verify sltoken.</p><p>Empty scope means a login request, i.e. it can be exchanged for a bearer session cookie that will be later used by the browser to do subsequent requests without need to authorize each of them __except critical actions__</p><ol><li>Critical actions authorization and DoubleSign.</li></ol><p>Some important actions should be authorized explicitly so the malware (XSS, MitM, malicious browser extensions) won&rsquo;t be able to do it on behalf of the user: scope=&ldquo;action=money transfer&amp;amount=100&rdquo; must receive it&rsquo;s own sltoken. Email and sharedSecret are omitted.</p><ol><li>Connect (OAuth replacement)</li></ol><p>SecureLogin&#8208;enabled users have out&#8208;of&#8208;the&#8208;box way to approve arbitrary scopes for 3rd party clients. Email and sharedSecret are omitted.</p><pre><code>provider=https://socialnetwork.app
+client=https://my.app
+scope=Access%3Dfriends
+</code></pre><p>Once my.app gets an sltoken with these values, it can try to make a request to <code>https://SocialNetwork.app/api/get_friends</code>, which will find the user with given pubkey, verify that scope inclides <code>friends</code>, make sure given client is whitelisted or not blacklisted (optional) then return the list of friends to requesting party my.app.</p><p>These 3 use cases will be becoming useful one by one: first we need to get a lot of websites using sltoken for Registration/Login, and provide them with secure passwords/2FA replacement. </p><p>Then, with more financial and critical services integrating the protocol, they will be using critical action authorizations for money transfers. DoubleSign will also be added in 2.0: users will be able to approve critical actions from Mobile + Desktop devices to stop malware trying to do a critical action from a compromised device.</p><p>After a long while when SL has critical user mass providers can switch from OAuth to stateless SecureLogin Connect.</p></section></section><section id="sec-Cryptography" secid="4"><h2><span class="spec-secid" title="link to this section"><a href="#sec-Cryptography">4</a></span>Cryptography</h2><p>SL uses solid cryptography from libraries with proven track record:</p><ol><li>Deterministic derivation of root hash from user&rsquo;s email and password. Currently only Weak&#8208;2017 scheme is offered: <a href="https://en.wikipedia.org/wiki/Scrypt">scrypt</a> with logN of 18 and parallelization 6. It takes up to 20 seconds on most devices. </li></ol><pre><code>derived_root = <span class="hljs-built_in">require</span>(<span class="hljs-string">"scrypt"</span>).hashSync(<span class="hljs-string">"masterpassword"</span>,{<span class="hljs-string">"N"</span>:<span class="hljs-built_in">Math</span>.pow(<span class="hljs-number">2</span>,<span class="hljs-number">18</span>),<span class="hljs-string">"r"</span>:<span class="hljs-number">8</span>,<span class="hljs-string">"p"</span>:<span class="hljs-number">6</span>},<span class="hljs-number">32</span>,<span class="hljs-string">"user@email.com"</span>).toString(<span class="hljs-string">"base64"</span>)
+</code></pre><ol><li>For signing <code>provider,client,scope,expire_at</code> payload we use Ed25519 from <a href="https://nacl.cr.yp.to/sign.html">NaCl</a></li><li>For all HMAC operations we use HMAC&#8208;SHA&#8208;512&#8208;256 (the first 256 bits of HMAC&#8208;SHA&#8208;512) from NaCl. HMAC is used to get shared_base from root hash: <code>hmac(root, &#x27;shared&#x27;)</code> which is used to derive everything else: <code>hmac(shared_base, &#x27;secret:https://my.app&#x27;)</code> for sharedSecret. sharedSecret exists for security&#8208;in&#8208;depth, and by default <code>hmac_signature</code> is not verified by websites.</li></ol></section><section id="sec-How-to-integrate" secid="5"><h2><span class="spec-secid" title="link to this section"><a href="#sec-How-to-integrate">5</a></span>How to integrate</h2><section id="sec-For-Websites" secid="5.1"><h3><span class="spec-secid" title="link to this section"><a href="#sec-For-Websites">5.1</a></span>For Websites</h3><p>To get started use our JS helper </p><pre><code>&lt;script src=&quot;https://securelogin.pw/sdk.js&quot;&gt;&lt;/script&gt;
+</code></pre><p>To get signed <code>sltoken</code> the app must invoke <code>SecureLogin(callback, scope)</code> on clicking login button:</p><pre><code>loginbutton.onclick = function(){
+  SecureLogin(function(sltoken){
+    xhr(&#x27;/login&#x27;,{
+      sltoken: sltoken,
+      authenticity_token: csrf
+    }, function(d){
+      if(d == &#x27;ok&#x27;){
+        location.reload()
+      }else{
+        console.log(d)
+      }
+    })
+  })
+  return false;
+}
+</code></pre><p>The resulting sltoken is sent to server side for verification and login:</p><pre><code>https://cobased.com%2Chttps://cobased.com%2C%2C1498731060,
+E5faDp1F3F4AGN2z5NgwZ/e0WB+ukZO3eMRWvTTZc4erts8mMzSy+CxGdz3OW1Xff8p6m
+DAPfnSK0QqSAAHmAA==%2CcIZjUTqMWYgzYGrsYEHptNiaaLapWiqgPPsG1PI/Rsw=,
+kdbjcc08YBKWdCY56lQJIi92wcGOW+KcMvbSgHN6WbU=%2C1OVh/+xHRCaebQ9Lz6k
+OTkTRrVm1xgvxGthABCwCQ8k=,homakov@gmail.com
+</code></pre><p>To unpack and verify sltoken use this reference implementation in Ruby:</p><pre><code>class SecureLogin
+  def self.csv(str)
+    str.to_s.split(&#x27;,&#x27;).map{|f| URI.decode(f) }
+  end
+
+  def self.hmac(secret, message)
+    # HMAC-SHA-512-256 (first 256 bits) https://nacl.cr.yp.to/auth.html    
+    Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest.new(&#x27;sha512&#x27;), Base64.decode64(secret), message).slice(0,32)).strip
+  end
+
+  def self.verify(sltoken, opts={})
+    message, signatures, authkeys, email = csv(sltoken)
+
+    signature, hmac_signature = csv(signatures)
+    pubkey, secret = csv(authkeys)
+    #if not set, use pubkey provided inside sltoken
+
+    pubkey = opts[:pubkey] || pubkey
+    secret = opts[:secret] || secret
+    origins = opts[:origins]
+
+    # You don&#x27;t have to implement shared secret verification, it&#x27;s extra check for the future if public crypto fails 
+    #error = &quot;Invalid HMAC #{hmac_signature}&quot; if self.hmac(secret, message) != hmac_signature
+    RbNaCl::VerifyKey.new(Base64.decode64(pubkey)).verify(Base64.decode64(signature), message) rescue error = &#x27;Invalid signature&#x27; 
+
+    provider, client, scope, expire_at = csv(message)
+
+    scope = Rack::Utils.parse_query(scope)
+
+    error = &quot;Invalid provider&quot; unless origins.include? provider
+
+    # for Connect client verification is skipped
+    error = &quot;Invalid client&quot; unless origins.include?(client) &amp;&amp; !opts[:connect] 
+    
+    # we don&#x27;t mind old tokens
+    error = &quot;Expired token&quot; unless expire_at.to_i + 86400 &gt; Time.now.to_i 
+    
+    if opts[:change] == true
+      # &quot;to&quot; is new sltoken to change to
+      error = &quot;Not mode=change token&quot; unless scope[&quot;mode&quot;] == &#x27;change&#x27; &amp;&amp; scope[&quot;to&quot;] &amp;&amp; scope.size == 2
+    else
+      error = &quot;Invalid scope&quot; unless scope == (opts[:scope] || {})
+    end
+
+    if error
+      return {error: error}
+    else
+      return {
+        provider: provider,
+        client: client,
+        scope: scope,
+        expire_at: expire_at,
+        email: email,
+        securelogin_pubkey: pubkey,
+        securelogin_secret: secret
+      }
+    end
+  end
+end
+</code></pre><p>Your login and password change actions must look like this:</p><pre><code>ORIGINS = %w{https://cobased.com http://128.199.242.161:8020 http://c.dev}
+
+def login
+  obj = SecureLogin.verify(params[:sltoken], origins: ORIGINS)
+  if obj[:error]
+    html obj[:error]
+  else
+    record = User.find_by(securelogin_pubkey: obj[:securelogin_pubkey]) || User.create({
+      email: obj[:email],
+      securelogin_secret: obj[:securelogin_secret],
+      securelogin_pubkey: obj[:securelogin_pubkey]
+    })
+
+    session[:user_id] = record.id
+    html &quot;ok&quot;
+  end
+end
+
+# GET /securelogin - required for instant password change
+def securelogin
+  response.headers[&#x27;Access-Control-Allow-Origin&#x27;] = &#x27;*&#x27;
+  obj = SecureLogin.verify(params[:sltoken], {
+    origins: ORIGINS,
+    change: true
+  })
+  if obj[:error]
+    html obj[:error]  
+  elsif @user = User.find_by(securelogin_pubkey: obj[:securelogin_pubkey])
+    new_obj = SecureLogin.verify(obj[:scope][&quot;to&quot;], origins: ORIGINS)
+    if new_obj[:error]
+      html &quot;invalid_new_token:#{new_obj[:error]}&quot; #new token is invalid
+    elsif User.exists?(securelogin_pubkey: new_obj[:securelogin_pubkey])
+      html &quot;pubkey_exists&quot;
+    else
+      @user.update_attributes({
+        securelogin_pubkey: new_obj[:securelogin_pubkey], 
+        securelogin_secret: new_obj[:securelogin_secret],
+        email: new_obj[:email]
+      })
+      # mark new email as unconfirmed
+      html &quot;changed&quot;
+    end
+  else
+    html &quot;not_found&quot;
+  end
+end
+</code></pre><p><strong>Warning about Email verification</strong>: the protocol does not confirm user email and does not intend to do so. In our vision an email provided is merely an address for mails, not a primary key / identifier like in the classic authentication scheme. I.e. two accounts can have equal email.</p><p>We don&rsquo;t recommend to confirm / verify it at all and let user specify whatever they want <strong>unless you are obligated by law to require explicit email confirmation</strong></p></section></section><footer>Written in <a href="http://leebyron.com/spec-md/" target="_blank">Spec Markdown</a>.</footer><input hidden class="spec-sidebar-toggle" type="checkbox" id="spec-sidebar-toggle" aria-hidden /><label for="spec-sidebar-toggle" aria-hidden>&#x2630;</label><div class="spec-sidebar" aria-hidden><div class="spec-toc"><div class="title"><a href="#">SecureLogin</a></div><ol><li id="_sidebar_1"><a href="#sec-Overview"><span class="spec-secid">1</span>Overview</a></li><li id="_sidebar_2"><a href="#sec-Terminology"><span class="spec-secid">2</span>Terminology</a></li><li id="_sidebar_3"><a href="#sec-Client-implementation"><span class="spec-secid">3</span>Client implementation</a><input hidden class="toggle" type="checkbox" id="_sidebar_toggle_3" /><label for="_sidebar_toggle_3"></label><ol><li id="_sidebar_3.1"><a href="#sec-About-sltoken"><span class="spec-secid">3.1</span>About sltoken</a></li></ol></li><li id="_sidebar_4"><a href="#sec-Cryptography"><span class="spec-secid">4</span>Cryptography</a></li><li id="_sidebar_5"><a href="#sec-How-to-integrate"><span class="spec-secid">5</span>How to integrate</a><input hidden class="toggle" type="checkbox" id="_sidebar_toggle_5" /><label for="_sidebar_toggle_5"></label><ol><li id="_sidebar_5.1"><a href="#sec-For-Websites"><span class="spec-secid">5.1</span>For Websites</a></li></ol></li></ol></div><script>
 (function () {
 var currentSection;
 var numberedSections = [];
